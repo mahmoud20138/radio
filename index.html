@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://ice5.somafm.com" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -28,6 +29,7 @@
       </a>
       <nav class="nav-links" aria-label="Primary navigation">
         <a href="#stations">Stations</a>
+        <a href="#broadcast">Live voice</a>
         <a href="#schedule">Schedule</a>
         <a href="#custom">Add stream</a>
       </nav>
@@ -82,6 +84,7 @@
               <i data-lucide="play"></i>
               <span>Start listening</span>
             </button>
+            <a class="text-link" href="#broadcast">Broadcast voice</a>
             <a class="text-link" href="#stations">Browse stations</a>
           </div>
           <div class="live-strip" aria-live="polite">
@@ -134,6 +137,88 @@
 
         <div class="notice" id="libraryNotice" role="status" aria-live="polite"></div>
         <div class="station-grid" id="stationGrid" aria-live="polite"></div>
+      </section>
+
+      <section class="broadcast-section" id="broadcast" aria-labelledby="broadcastTitle">
+        <div class="broadcast-copy" data-reveal>
+          <p class="eyebrow">Live voice</p>
+          <h2 id="broadcastTitle">Broadcast from your mic</h2>
+          <p>
+            Start a small live room, share the listener link, and let people hear your voice in real time.
+          </p>
+        </div>
+
+        <div class="broadcast-grid" data-reveal>
+          <section class="broadcast-panel" aria-labelledby="hostTitle">
+            <div class="broadcast-panel-head">
+              <i data-lucide="mic"></i>
+              <div>
+                <h3 id="hostTitle">Host live</h3>
+                <p id="voiceHostStatus" role="status" aria-live="polite">Off air</p>
+              </div>
+            </div>
+
+            <div class="broadcast-actions">
+              <button class="button" type="button" id="startVoiceButton">
+                <i data-lucide="radio-tower"></i>
+                <span>Start Live Voice</span>
+              </button>
+              <button class="icon-text-button" type="button" id="stopVoiceButton" disabled>
+                <i data-lucide="square"></i>
+                <span>Stop</span>
+              </button>
+            </div>
+
+            <label class="share-field" for="voiceShareLink">
+              <span>Listener link</span>
+              <input id="voiceShareLink" type="text" readonly placeholder="Start live voice to create a link" />
+            </label>
+            <button class="icon-text-button" type="button" id="copyVoiceLinkButton" disabled>
+              <i data-lucide="copy"></i>
+              <span>Copy link</span>
+            </button>
+
+            <div class="broadcast-meter" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <p class="broadcast-note" id="voiceListenerCount">No listeners connected.</p>
+          </section>
+
+          <section class="broadcast-panel" aria-labelledby="listenTitle">
+            <div class="broadcast-panel-head">
+              <i data-lucide="headphones"></i>
+              <div>
+                <h3 id="listenTitle">Listen to a host</h3>
+                <p id="voiceListenStatus" role="status" aria-live="polite">Enter a broadcaster code or open a listener link.</p>
+              </div>
+            </div>
+
+            <label class="share-field" for="listenerCode">
+              <span>Broadcaster code</span>
+              <input id="listenerCode" type="text" autocomplete="off" placeholder="Paste code from listener link" />
+            </label>
+
+            <div class="broadcast-actions">
+              <button class="button" type="button" id="listenVoiceButton">
+                <i data-lucide="play"></i>
+                <span>Listen</span>
+              </button>
+              <button class="icon-text-button" type="button" id="stopListenButton" disabled>
+                <i data-lucide="circle-stop"></i>
+                <span>Stop listening</span>
+              </button>
+            </div>
+
+            <audio id="voiceAudio" controls autoplay playsinline hidden></audio>
+            <p class="broadcast-note">
+              Best for small live sessions. For hundreds of listeners, use an Icecast or hosted radio stream.
+            </p>
+          </section>
+        </div>
       </section>
 
       <section class="studio-section" id="schedule" aria-labelledby="scheduleTitle">

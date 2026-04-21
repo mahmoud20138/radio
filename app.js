@@ -1,4 +1,5 @@
 const RADIO_BROWSER_SEARCH = "https://de1.api.radio-browser.info/json/stations/search";
+const PUBLIC_SITE_URL = "https://mahmoud20138.github.io/radio/";
 const STORAGE_KEYS = {
   favorites: "mahmoud-radio:favorites",
   customStations: "mahmoud-radio:custom-stations",
@@ -140,6 +141,17 @@ const state = {
   isDiscovering: false,
 };
 
+const voiceState = {
+  hostPeer: null,
+  hostStream: null,
+  hostCalls: new Map(),
+  listenPeer: null,
+  listenCall: null,
+  listenConnection: null,
+  isHosting: false,
+  isListening: false,
+};
+
 const elements = {};
 
 document.addEventListener("DOMContentLoaded", init);
@@ -152,6 +164,7 @@ function init() {
   renderFilters();
   renderStations();
   setCurrentStation(state.currentStationId, false);
+  initVoiceFromUrl();
   setupRevealObserver();
   refreshIcons();
 }
@@ -183,6 +196,18 @@ function cacheElements() {
   elements.customGenre = document.querySelector("#customGenre");
   elements.customCountry = document.querySelector("#customCountry");
   elements.customFormMessage = document.querySelector("#customFormMessage");
+  elements.startVoiceButton = document.querySelector("#startVoiceButton");
+  elements.stopVoiceButton = document.querySelector("#stopVoiceButton");
+  elements.copyVoiceLinkButton = document.querySelector("#copyVoiceLinkButton");
+  elements.listenVoiceButton = document.querySelector("#listenVoiceButton");
+  elements.stopListenButton = document.querySelector("#stopListenButton");
+  elements.voiceShareLink = document.querySelector("#voiceShareLink");
+  elements.listenerCode = document.querySelector("#listenerCode");
+  elements.voiceAudio = document.querySelector("#voiceAudio");
+  elements.voiceHostStatus = document.querySelector("#voiceHostStatus");
+  elements.voiceListenStatus = document.querySelector("#voiceListenStatus");
+  elements.voiceListenerCount = document.querySelector("#voiceListenerCount");
+  elements.broadcastHostPanel = document.querySelector(".broadcast-panel");
 }
 
 function bindEvents() {
@@ -255,6 +280,11 @@ function bindEvents() {
   });
 
   elements.customStationForm.addEventListener("submit", handleCustomStationSubmit);
+  elements.startVoiceButton.addEventListener("click", startVoiceBroadcast);
+  elements.stopVoiceButton.addEventListener("click", stopVoiceBroadcast);
+  elements.copyVoiceLinkButton.addEventListener("click", copyVoiceLink);
+  elements.listenVoiceButton.addEventListener("click", startVoiceListen);
+  elements.stopListenButton.addEventListener("click", stopVoiceListen);
 
   elements.audio.addEventListener("loadstart", () => setPlayerStatus("Connecting"));
   elements.audio.addEventListener("waiting", () => setPlayerStatus("Buffering"));
@@ -553,7 +583,7 @@ function handleCustomStationSubmit(event) {
   };
 
   state.customStations = [...state.customStations, station];
-  state.stations = normalizeStations([...curatedStations, ...state.customStations]);
+  state.stations = normalizeStations([...state.stations, station]);
   localStorage.setItem(STORAGE_KEYS.customStations, JSON.stringify(state.customStations));
   elements.customStationForm.reset();
   renderFilters();
@@ -617,6 +647,268 @@ function showNotice(message, isError = false) {
 function setFormMessage(message, isError = false) {
   elements.customFormMessage.textContent = message;
   elements.customFormMessage.classList.toggle("is-error", isError);
+}
+
+function initVoiceFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const listenerCode = params.get("listen");
+  if (!listenerCode) return;
+
+  elements.listenerCode.value = listenerCode;
+  setVoiceListenStatus("Broadcaster code loaded. Press Listen to connect.");
+  document.querySelector("#broadcast")?.scrollIntoView({ block: "start" });
+}
+
+async function startVoiceBroadcast() {
+  if (voiceState.isHosting) return;
+
+  if (!window.Peer) {
+    setVoiceHostStatus("Live voice library did not load. Refresh the page and try again.", true);
+    return;
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setVoiceHostStatus("This browser cannot access the microphone.", true);
+    return;
+  }
+
+  try {
+    setVoiceHostStatus("Requesting microphone access...");
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    });
+
+    const peer = createVoicePeer();
+    voiceState.hostPeer = peer;
+    voiceState.hostStream = stream;
+
+    peer.on("open", (id) => {
+      const shareUrl = getVoiceShareUrl(id);
+
+      voiceState.isHosting = true;
+      elements.voiceShareLink.value = shareUrl.toString();
+      elements.startVoiceButton.disabled = true;
+      elements.stopVoiceButton.disabled = false;
+      elements.copyVoiceLinkButton.disabled = false;
+      elements.broadcastHostPanel.classList.add("is-live");
+      setVoiceHostStatus("On air. Share the listener link.");
+      updateVoiceListenerCount();
+    });
+
+    peer.on("call", (call) => {
+      call.answer(stream);
+      trackHostCall(call);
+    });
+
+    peer.on("connection", (connection) => {
+      connection.on("data", (data) => {
+        if (data?.type !== "listen-request") return;
+        const listenerId = data.peerId || connection.peer;
+        const call = peer.call(listenerId, stream);
+        trackHostCall(call);
+      });
+    });
+
+    peer.on("error", (error) => {
+      setVoiceHostStatus(readablePeerError(error), true);
+    });
+  } catch (error) {
+    stopVoiceBroadcast();
+    setVoiceHostStatus("Microphone access was blocked or unavailable.", true);
+  }
+}
+
+function stopVoiceBroadcast() {
+  voiceState.hostCalls.forEach((call) => call.close());
+  voiceState.hostCalls.clear();
+
+  if (voiceState.hostStream) {
+    voiceState.hostStream.getTracks().forEach((track) => track.stop());
+  }
+
+  if (voiceState.hostPeer && !voiceState.hostPeer.destroyed) {
+    voiceState.hostPeer.destroy();
+  }
+
+  voiceState.hostPeer = null;
+  voiceState.hostStream = null;
+  voiceState.isHosting = false;
+  elements.startVoiceButton.disabled = false;
+  elements.stopVoiceButton.disabled = true;
+  elements.copyVoiceLinkButton.disabled = true;
+  elements.voiceShareLink.value = "";
+  elements.broadcastHostPanel.classList.remove("is-live");
+  setVoiceHostStatus("Off air");
+  updateVoiceListenerCount();
+}
+
+async function copyVoiceLink() {
+  const value = elements.voiceShareLink.value;
+  if (!value) return;
+
+  try {
+    await navigator.clipboard.writeText(value);
+    setVoiceHostStatus("Listener link copied.");
+  } catch (error) {
+    elements.voiceShareLink.select();
+    document.execCommand("copy");
+    setVoiceHostStatus("Listener link copied.");
+  }
+}
+
+function startVoiceListen() {
+  const broadcasterId = elements.listenerCode.value.trim();
+  if (!broadcasterId) {
+    setVoiceListenStatus("Paste a broadcaster code first.", true);
+    return;
+  }
+
+  if (!window.Peer) {
+    setVoiceListenStatus("Live voice library did not load. Refresh the page and try again.", true);
+    return;
+  }
+
+  stopVoiceListen();
+  setVoiceListenStatus("Connecting to broadcaster...");
+
+  const peer = createVoicePeer();
+  voiceState.listenPeer = peer;
+
+  peer.on("open", () => {
+    const connection = peer.connect(broadcasterId, { reliable: true });
+    voiceState.listenConnection = connection;
+    elements.listenVoiceButton.disabled = true;
+    elements.stopListenButton.disabled = false;
+
+    connection.on("open", () => {
+      connection.send({ type: "listen-request", peerId: peer.id });
+      setVoiceListenStatus("Waiting for host audio...");
+    });
+
+    connection.on("error", () => {
+      stopVoiceListen("Could not reach the broadcaster.");
+    });
+  });
+
+  peer.on("call", (call) => {
+    voiceState.listenCall = call;
+    call.answer();
+
+    call.on("stream", async (remoteStream) => {
+      voiceState.isListening = true;
+      elements.voiceAudio.srcObject = remoteStream;
+      elements.voiceAudio.hidden = false;
+
+      try {
+        await elements.voiceAudio.play();
+        setVoiceListenStatus("Listening live.");
+      } catch (error) {
+        setVoiceListenStatus("Connected. Press play in the audio control.");
+      }
+    });
+
+    call.on("close", () => {
+      stopVoiceListen("Broadcast ended.");
+    });
+
+    call.on("error", () => {
+      stopVoiceListen("Could not keep the live voice connection.");
+    });
+  });
+
+  peer.on("error", (error) => {
+    stopVoiceListen(readablePeerError(error));
+  });
+}
+
+function stopVoiceListen(message = "Stopped listening.") {
+  if (voiceState.listenCall) {
+    voiceState.listenCall.close();
+  }
+
+  if (voiceState.listenPeer && !voiceState.listenPeer.destroyed) {
+    voiceState.listenPeer.destroy();
+  }
+
+  if (voiceState.listenConnection) {
+    voiceState.listenConnection.close();
+  }
+
+  if (elements.voiceAudio.srcObject) {
+    elements.voiceAudio.srcObject.getTracks().forEach((track) => track.stop());
+  }
+
+  voiceState.listenPeer = null;
+  voiceState.listenCall = null;
+  voiceState.listenConnection = null;
+  voiceState.isListening = false;
+  elements.voiceAudio.pause();
+  elements.voiceAudio.removeAttribute("src");
+  elements.voiceAudio.srcObject = null;
+  elements.voiceAudio.hidden = true;
+  elements.listenVoiceButton.disabled = false;
+  elements.stopListenButton.disabled = true;
+  setVoiceListenStatus(message, /could not|unavailable|failed|closed/i.test(message));
+}
+
+function createVoicePeer() {
+  return new Peer(undefined, {
+    debug: 1,
+  });
+}
+
+function getVoiceShareUrl(id) {
+  const shareUrl = window.location.protocol === "file:" ? new URL(PUBLIC_SITE_URL) : new URL(window.location.href);
+  shareUrl.search = "";
+  shareUrl.searchParams.set("listen", id);
+  shareUrl.hash = "broadcast";
+  return shareUrl;
+}
+
+function trackHostCall(call) {
+  voiceState.hostCalls.set(call.peer, call);
+  updateVoiceListenerCount();
+
+  call.on("close", () => {
+    voiceState.hostCalls.delete(call.peer);
+    updateVoiceListenerCount();
+  });
+
+  call.on("error", () => {
+    voiceState.hostCalls.delete(call.peer);
+    updateVoiceListenerCount();
+  });
+}
+
+function updateVoiceListenerCount() {
+  const count = voiceState.hostCalls.size;
+  elements.voiceListenerCount.textContent = count === 1 ? "1 listener connected." : `${count} listeners connected.`;
+}
+
+function setVoiceHostStatus(message, isError = false) {
+  elements.voiceHostStatus.textContent = message;
+  elements.voiceHostStatus.classList.toggle("is-error", isError);
+}
+
+function setVoiceListenStatus(message, isError = false) {
+  elements.voiceListenStatus.textContent = message;
+  elements.voiceListenStatus.classList.toggle("is-error", isError);
+}
+
+function readablePeerError(error) {
+  const type = error?.type || "";
+  if (type === "peer-unavailable") {
+    return "Broadcaster is offline or the code is wrong.";
+  }
+  if (type === "network") {
+    return "Live voice network is unavailable. Try again.";
+  }
+  return "Live voice connection failed. Try again.";
 }
 
 function refreshIcons() {
