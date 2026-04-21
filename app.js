@@ -1,478 +1,700 @@
-/* ============================================================
- * Wavelength · Application logic
- * Radio stations + podcasts with RSS feed streaming.
- * ============================================================ */
+const RADIO_BROWSER_SEARCH = "https://de1.api.radio-browser.info/json/stations/search";
+const STORAGE_KEYS = {
+  favorites: "mahmoud-radio:favorites",
+  customStations: "mahmoud-radio:custom-stations",
+  volume: "mahmoud-radio:volume",
+};
 
-(() => {
-  'use strict';
+const curatedStations = [
+  {
+    id: "somafm-groove-salad",
+    name: "SomaFM Groove Salad",
+    country: "United States",
+    city: "San Francisco",
+    genre: "Chill",
+    tags: ["ambient", "downtempo", "lounge"],
+    streamUrl: "https://ice5.somafm.com/groovesalad-128-mp3",
+    artwork: "https://somafm.com/img3/groovesalad-400.jpg",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "oldie-antenne",
+    name: "OLDIE ANTENNE",
+    country: "Germany",
+    city: "Munich",
+    genre: "Oldies",
+    tags: ["60s", "70s", "80s"],
+    streamUrl: "https://s1-webradio.oldie-antenne.de/oldie-antenne?aw_0_1st.playerid=MahmoudRadio",
+    artwork: "https://www.oldie-antenne.de/logos/oldie-antenne/apple-touch-icon.png",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "bbc-world-service",
+    name: "BBC World Service",
+    country: "United Kingdom",
+    city: "London",
+    genre: "News",
+    tags: ["world", "talk", "public radio"],
+    streamUrl: "https://stream.live.vc.bbcmedia.co.uk/bbc_world_service_east_asia",
+    artwork: "",
+    codec: "MP3",
+    bitrate: "56",
+  },
+  {
+    id: "kexp",
+    name: "KEXP 90.3 FM",
+    country: "United States",
+    city: "Seattle",
+    genre: "Alternative",
+    tags: ["indie", "rock", "live"],
+    streamUrl: "https://kexp-mp3-128.streamguys1.com/kexp128.mp3",
+    artwork: "https://www.kexp.org/static/assets/img/favicon-196x196.png",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "deutschlandfunk",
+    name: "Deutschlandfunk",
+    country: "Germany",
+    city: "Cologne",
+    genre: "News",
+    tags: ["culture", "public radio", "information"],
+    streamUrl: "https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3?aggregator=web",
+    artwork: "https://www.deutschlandfunk.de/static/img/deutschlandfunk/icons/apple-touch-icon-128x128.png",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "swr3",
+    name: "SWR3",
+    country: "Germany",
+    city: "Baden-Baden",
+    genre: "Pop",
+    tags: ["pop", "rock", "news"],
+    streamUrl: "https://liveradio.swr.de/sw282p3/swr3/play.mp3",
+    artwork: "https://swr3.de/assets/swr3/icons/apple-touch-icon.png",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "dance-wave",
+    name: "Dance Wave!",
+    country: "Hungary",
+    city: "Budapest",
+    genre: "Dance",
+    tags: ["electronic", "house", "trance"],
+    streamUrl: "https://dancewave.online/dance.mp3",
+    artwork: "https://dancewave.online/dw_logo.png",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "chilltrax",
+    name: "Chilltrax",
+    country: "United States",
+    city: "Miami",
+    genre: "Chill",
+    tags: ["electronic", "chillout", "lounge"],
+    streamUrl: "https://streamssl.chilltrax.com/",
+    artwork: "",
+    codec: "MP3",
+    bitrate: "128",
+  },
+  {
+    id: "qmusic",
+    name: "Qmusic",
+    country: "Netherlands",
+    city: "Amsterdam",
+    genre: "Pop",
+    tags: ["hits", "top 40", "morning"],
+    streamUrl: "https://icecast-qmusicnl-cdp.triple-it.nl/Qmusic_nl_live_96.mp3",
+    artwork: "https://qmusic.nl/favicon.ico",
+    codec: "MP3",
+    bitrate: "96",
+  },
+  {
+    id: "mangoradio",
+    name: "MANGORADIO",
+    country: "Germany",
+    city: "Berlin",
+    genre: "Variety",
+    tags: ["music", "variety", "pop"],
+    streamUrl: "https://mangoradio.stream.laut.fm/mangoradio",
+    artwork: "https://mangoradio.de/wp-content/uploads/cropped-Logo-192x192.webp",
+    codec: "MP3",
+    bitrate: "128",
+  },
+];
 
-  // ----- Persistent state -----
-  const LS = {
-    favs: 'wl.favorites',          // station favorites
-    podFavs: 'wl.podFavorites',    // podcast favorites
-    recent: 'wl.recent',           // station recent
-    podRecent: 'wl.podRecent',     // podcast recent (episode refs)
-    volume: 'wl.volume',
-    theme: 'wl.theme',
-    lastStation: 'wl.last',
-    lastEpisode: 'wl.lastEpisode'
-  };
+const state = {
+  stations: [],
+  filteredStations: [],
+  currentStationId: "somafm-groove-salad",
+  favorites: new Set(readJson(STORAGE_KEYS.favorites, [])),
+  customStations: readJson(STORAGE_KEYS.customStations, []),
+  favoritesOnly: false,
+  isPlaying: false,
+  isMuted: false,
+  isDiscovering: false,
+};
 
-  // mode: 'radio' | 'podcast'
-  // view: 'discover' | 'podcasts' | 'favorites' | 'recent'
-  const State = {
-    view: 'discover',
-    mode: 'radio',
-    genre: null,
-    category: null,
-    query: '',
-    favorites: load(LS.favs, []),
-    podFavorites: load(LS.podFavs, []),
-    recent: load(LS.recent, []),
-    podRecent: load(LS.podRecent, []),
-    volume: load(LS.volume, 70),
-    muted: false,
-    prevVolume: 70,
-    currentId: null,        // station id (when mode=radio) or podcast id (when mode=podcast)
-    currentEpisode: null,   // { podcastId, guid, title, url, pubDate, duration }
-    episodes: [],           // currently loaded episodes for the open podcast
-    isPlaying: false,
-    isLoading: false
-  };
+const elements = {};
 
-  // CORS proxy for RSS feeds. allorigins is public & reliable for static XML.
-  const RSS_PROXIES = [
-    (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-    (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`
-  ];
+document.addEventListener("DOMContentLoaded", init);
 
-  // ----- DOM refs -----
-  const $ = (s) => document.querySelector(s);
-  const $$ = (s) => document.querySelectorAll(s);
+function init() {
+  cacheElements();
+  state.stations = normalizeStations([...curatedStations, ...state.customStations]);
+  restoreVolume();
+  bindEvents();
+  renderFilters();
+  renderStations();
+  setCurrentStation(state.currentStationId, false);
+  setupRevealObserver();
+  refreshIcons();
+}
 
-  const audio        = $('#audio');
-  const grid         = $('#stationGrid');
-  const sectionTitle = $('#sectionTitle');
-  const resultCount  = $('#resultCount');
-  const emptyState   = $('#emptyState');
-  const emptyMsg     = $('#emptyMsg');
-  const genreList    = $('#genreList');
-  const genresHeading= $('#genresHeading');
-  const searchInput  = $('#searchInput');
-  const favCount     = $('#favCount');
-  const sidebar      = $('#sidebar');
-  const menuBtn      = $('#menuBtn');
-  const themeBtn     = $('#themeBtn');
-  const heroEyebrow  = $('#heroEyebrow');
-  const heroTitle    = $('#heroTitle');
-  const heroLead     = $('#heroLead');
+function cacheElements() {
+  elements.audio = document.querySelector("#radioAudio");
+  elements.stationGrid = document.querySelector("#stationGrid");
+  elements.stationSearch = document.querySelector("#stationSearch");
+  elements.genreFilter = document.querySelector("#genreFilter");
+  elements.countryFilter = document.querySelector("#countryFilter");
+  elements.favoritesToggle = document.querySelector("#favoritesToggle");
+  elements.discoverButton = document.querySelector("#discoverButton");
+  elements.libraryNotice = document.querySelector("#libraryNotice");
+  elements.heroNowPlaying = document.querySelector("#heroNowPlaying");
+  elements.playToggle = document.querySelector("#playToggle");
+  elements.playToggleIcon = document.querySelector("#playToggleIcon");
+  elements.previousButton = document.querySelector("#previousButton");
+  elements.nextButton = document.querySelector("#nextButton");
+  elements.muteButton = document.querySelector("#muteButton");
+  elements.volumeSlider = document.querySelector("#volumeSlider");
+  elements.playerArtwork = document.querySelector("#playerArtwork");
+  elements.playerFallback = document.querySelector("#playerFallback");
+  elements.playerStatus = document.querySelector("#playerStatus");
+  elements.playerTitle = document.querySelector("#playerTitle");
+  elements.playerMeta = document.querySelector("#playerMeta");
+  elements.customStationForm = document.querySelector("#customStationForm");
+  elements.customName = document.querySelector("#customName");
+  elements.customUrl = document.querySelector("#customUrl");
+  elements.customGenre = document.querySelector("#customGenre");
+  elements.customCountry = document.querySelector("#customCountry");
+  elements.customFormMessage = document.querySelector("#customFormMessage");
+}
 
-  // Player
-  const playerName   = $('#playerName');
-  const playerSub    = $('#playerSub');
-  const playerCover  = $('#playerCover');
-  const coverInitial = $('#coverInitial');
-  const playBtn      = $('#playBtn');
-  const playIcon     = $('#playIcon');
-  const pauseIcon    = $('#pauseIcon');
-  const loadIcon     = $('#loadIcon');
-  const prevBtn      = $('#prevBtn');
-  const nextBtn      = $('#nextBtn');
-  const favBtn       = $('#favBtn');
-  const muteBtn      = $('#muteBtn');
-  const volIcon      = $('#volIcon');
-  const muteIcon     = $('#muteIcon');
-  const volume       = $('#volume');
-  const volValue     = $('#volValue');
-  const toast        = $('#toast');
-  const vizCanvas    = $('#vizCanvas');
+function bindEvents() {
+  elements.stationSearch.addEventListener("input", () => {
+    renderStations();
+  });
 
-  // Episode drawer
-  const drawer       = $('#episodeDrawer');
-  const drawerBackdrop = $('#drawerBackdrop');
-  const drawerClose  = $('#drawerClose');
-  const drawerTitle  = $('#drawerTitle');
-  const drawerPublisher = $('#drawerPublisher');
-  const drawerDesc   = $('#drawerDesc');
-  const drawerCover  = $('#drawerCover');
-  const drawerInitial= $('#drawerInitial');
-  const episodeList  = $('#episodeList');
-  const episodeLoading = $('#episodeLoading');
-  const episodeError = $('#episodeError');
-  const episodeErrorMsg = $('#episodeErrorMsg');
-  const episodeRetry = $('#episodeRetry');
+  elements.genreFilter.addEventListener("change", renderStations);
+  elements.countryFilter.addEventListener("change", renderStations);
 
-  // Reference to which podcast is open in drawer
-  let openPodcast = null;
+  elements.favoritesToggle.addEventListener("click", () => {
+    state.favoritesOnly = !state.favoritesOnly;
+    elements.favoritesToggle.setAttribute("aria-pressed", String(state.favoritesOnly));
+    renderStations();
+  });
 
-  // ----- Helpers -----
-  function load(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch { return fallback; }
-  }
-  function save(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-  }
+  elements.discoverButton.addEventListener("click", discoverStations);
 
-  function findStation(id) { return STATIONS.find(s => s.id === id); }
-  function findPodcast(id) { return PODCASTS.find(p => p.id === id); }
+  elements.stationGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
 
-  function escapeHtml(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[c]));
-  }
+    const stationId = button.dataset.stationId;
+    if (!stationId) return;
 
-  function stripHtml(s) {
-    if (!s) return '';
-    const div = document.createElement('div');
-    div.innerHTML = s;
-    return (div.textContent || div.innerText || '').trim();
-  }
-
-  function truncate(s, n) {
-    if (!s) return '';
-    return s.length > n ? s.slice(0, n - 1) + '…' : s;
-  }
-
-  function formatDate(d) {
-    if (!d) return '';
-    const dt = new Date(d);
-    if (isNaN(dt.getTime())) return '';
-    const now = new Date();
-    const days = Math.floor((now - dt) / (1000 * 60 * 60 * 24));
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-
-  function formatDuration(s) {
-    if (!s) return '';
-    // iTunes duration can be seconds, or "HH:MM:SS", or "MM:SS"
-    let sec;
-    if (/^\d+$/.test(s)) {
-      sec = parseInt(s, 10);
-    } else if (/:/.test(s)) {
-      const parts = s.split(':').map(Number);
-      if (parts.some(isNaN)) return '';
-      sec = parts.length === 3
-        ? parts[0] * 3600 + parts[1] * 60 + parts[2]
-        : parts[0] * 60 + parts[1];
-    } else {
-      return '';
+    if (button.dataset.action === "play-station") {
+      if (stationId === state.currentStationId && state.isPlaying) {
+        pauseCurrentStation();
+        return;
+      }
+      setCurrentStation(stationId, true);
     }
-    if (!sec || sec < 0) return '';
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    return h ? `${h}h ${m}m` : `${m} min`;
-  }
 
-  function showToast(message, ms = 2200) {
-    toast.textContent = message;
-    toast.hidden = false;
-    requestAnimationFrame(() => toast.classList.add('show'));
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => { toast.hidden = true; }, 300);
-    }, ms);
-  }
+    if (button.dataset.action === "favorite-station") {
+      toggleFavorite(stationId);
+    }
+  });
 
-  // ============================================================
-  // Sidebar filter list: renders genres (radio) or categories (podcasts)
-  // ============================================================
-  function renderGenres() {
-    if (State.view === 'podcasts') {
-      genresHeading.textContent = 'Categories';
-      const counts = {};
-      PODCASTS.forEach(p => { counts[p.category] = (counts[p.category] || 0) + 1; });
-      const cats = Object.keys(counts).sort();
+  document.querySelectorAll("[data-action='hero-play']").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!state.currentStationId) {
+        setCurrentStation(state.filteredStations[0]?.id || state.stations[0]?.id, true);
+        return;
+      }
+      playCurrentStation();
+    });
+  });
 
-      const allActive = State.category === null && State.view === 'podcasts';
-      let html = `
-        <div class="genre-item ${allActive ? 'active' : ''}" data-cat="">
-          <span>All Podcasts</span>
-          <span class="count">${PODCASTS.length}</span>
-        </div>
-      `;
-      cats.forEach(c => {
-        const active = State.category === c;
-        html += `
-          <div class="genre-item ${active ? 'active' : ''}" data-cat="${escapeHtml(c)}">
-            <span>${escapeHtml(c)}</span>
-            <span class="count">${counts[c]}</span>
-          </div>
-        `;
-      });
-      genreList.innerHTML = html;
-
-      genreList.querySelectorAll('.genre-item').forEach(el => {
-        el.addEventListener('click', () => {
-          State.category = el.dataset.cat || null;
-          State.query = '';
-          searchInput.value = '';
-          renderGenres();
-          renderGrid();
-          if (window.innerWidth < 900) sidebar.classList.remove('open');
-        });
-      });
+  elements.playToggle.addEventListener("click", () => {
+    if (state.isPlaying) {
+      pauseCurrentStation();
       return;
     }
+    playCurrentStation();
+  });
 
-    // Radio genres
-    genresHeading.textContent = 'Genres';
-    const counts = {};
-    STATIONS.forEach(s => { counts[s.genre] = (counts[s.genre] || 0) + 1; });
-    const genres = Object.keys(counts).sort();
+  elements.previousButton.addEventListener("click", () => jumpStation(-1));
+  elements.nextButton.addEventListener("click", () => jumpStation(1));
 
-    const allActive = State.genre === null && State.view === 'discover';
-    let html = `
-      <div class="genre-item ${allActive ? 'active' : ''}" data-genre="">
-        <span>All Stations</span>
-        <span class="count">${STATIONS.length}</span>
+  elements.muteButton.addEventListener("click", () => {
+    state.isMuted = !state.isMuted;
+    elements.audio.muted = state.isMuted;
+    renderPlayerControls();
+  });
+
+  elements.volumeSlider.addEventListener("input", () => {
+    const volume = Number(elements.volumeSlider.value) / 100;
+    elements.audio.volume = volume;
+    localStorage.setItem(STORAGE_KEYS.volume, String(volume));
+  });
+
+  elements.customStationForm.addEventListener("submit", handleCustomStationSubmit);
+
+  elements.audio.addEventListener("loadstart", () => setPlayerStatus("Connecting"));
+  elements.audio.addEventListener("waiting", () => setPlayerStatus("Buffering"));
+  elements.audio.addEventListener("stalled", () => setPlayerStatus("Reconnecting"));
+  elements.audio.addEventListener("playing", () => {
+    state.isPlaying = true;
+    setPlayerStatus("Playing live");
+    renderPlayerControls();
+    renderStations();
+  });
+  elements.audio.addEventListener("pause", () => {
+    state.isPlaying = false;
+    setPlayerStatus("Paused");
+    renderPlayerControls();
+    renderStations();
+  });
+  elements.audio.addEventListener("error", () => {
+    state.isPlaying = false;
+    setPlayerStatus("Stream unavailable");
+    showNotice("This stream could not be loaded. Try another station.", true);
+    renderPlayerControls();
+    renderStations();
+  });
+}
+
+function normalizeStations(stations) {
+  const seen = new Set();
+  return stations
+    .map((station) => ({
+      id: sanitizeId(station.id || station.stationuuid || station.name),
+      name: cleanText(station.name, "Untitled station"),
+      country: cleanText(station.country, "Global"),
+      city: cleanText(station.city || station.state, ""),
+      genre: cleanText(station.genre || firstTag(station.tags), "Variety"),
+      tags: normalizeTags(station.tags),
+      streamUrl: safeUrl(station.streamUrl || station.url_resolved || station.url),
+      artwork: safeUrl(station.artwork || station.favicon),
+      codec: cleanText(station.codec, "Stream"),
+      bitrate: cleanText(station.bitrate, ""),
+      source: station.source || "curated",
+    }))
+    .filter((station) => {
+      if (!station.id || !station.streamUrl || seen.has(station.streamUrl)) {
+        return false;
+      }
+      seen.add(station.streamUrl);
+      return true;
+    });
+}
+
+function renderFilters() {
+  const genres = uniqueSorted(state.stations.map((station) => station.genre));
+  const countries = uniqueSorted(state.stations.map((station) => station.country));
+  renderOptions(elements.genreFilter, "All genres", genres);
+  renderOptions(elements.countryFilter, "All countries", countries);
+}
+
+function renderOptions(select, firstLabel, options) {
+  const previousValue = select.value;
+  select.innerHTML = [
+    `<option value="all">${escapeHtml(firstLabel)}</option>`,
+    ...options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+  ].join("");
+
+  if ([...select.options].some((option) => option.value === previousValue)) {
+    select.value = previousValue;
+  }
+}
+
+function renderStations() {
+  const query = elements.stationSearch.value.trim().toLowerCase();
+  const selectedGenre = elements.genreFilter.value;
+  const selectedCountry = elements.countryFilter.value;
+
+  state.filteredStations = state.stations.filter((station) => {
+    const searchable = [
+      station.name,
+      station.country,
+      station.city,
+      station.genre,
+      station.codec,
+      ...station.tags,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return (
+      (!query || searchable.includes(query)) &&
+      (selectedGenre === "all" || station.genre === selectedGenre) &&
+      (selectedCountry === "all" || station.country === selectedCountry) &&
+      (!state.favoritesOnly || state.favorites.has(station.id))
+    );
+  });
+
+  if (!state.filteredStations.length) {
+    elements.stationGrid.innerHTML = `<div class="notice">No stations match the current filters.</div>`;
+    return;
+  }
+
+  elements.stationGrid.innerHTML = state.filteredStations.map(renderStationCard).join("");
+  refreshIcons();
+}
+
+function renderStationCard(station) {
+  const isFavorite = state.favorites.has(station.id);
+  const isActive = station.id === state.currentStationId;
+  const isPlaying = isActive && state.isPlaying;
+  const tags = station.tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
+  const artwork = station.artwork ? `src="${escapeAttribute(station.artwork)}"` : `src=""`;
+  const location = [station.city, station.country].filter(Boolean).join(", ");
+  const actionLabel = isPlaying ? "Pause" : "Play";
+
+  return `
+    <article class="station-card${isActive ? " is-active" : ""}${isPlaying ? " is-playing" : ""}">
+      <div class="station-card-art">
+        <img ${artwork} alt="" loading="lazy" onerror="this.removeAttribute('src')" />
+        <span class="art-fallback">${escapeHtml(initials(station.name))}</span>
       </div>
-    `;
-    genres.forEach(g => {
-      const active = State.genre === g && State.view === 'discover';
-      html += `
-        <div class="genre-item ${active ? 'active' : ''}" data-genre="${escapeHtml(g)}">
-          <span>${escapeHtml(g)}</span>
-          <span class="count">${counts[g]}</span>
-        </div>
-      `;
-    });
-    genreList.innerHTML = html;
+      <div class="station-card-body">
+        <h3>${escapeHtml(station.name)}</h3>
+        <div class="station-meta">${escapeHtml(station.genre)} - ${escapeHtml(location || "Global")} - ${escapeHtml(formatCodec(station))}</div>
+        <div class="station-tags">${tags}</div>
+      </div>
+      <div class="station-actions">
+        <button class="icon-btn station-play" type="button" data-action="play-station" data-station-id="${escapeAttribute(station.id)}" aria-label="${actionLabel} ${escapeAttribute(station.name)}" title="${actionLabel} ${escapeAttribute(station.name)}">
+          <i data-lucide="${isPlaying ? "pause" : "play"}"></i>
+          <span>${actionLabel}</span>
+        </button>
+        <button class="icon-btn${isFavorite ? " is-active" : ""}" type="button" data-action="favorite-station" data-station-id="${escapeAttribute(station.id)}" aria-label="${isFavorite ? "Remove favorite" : "Add favorite"}" title="${isFavorite ? "Remove favorite" : "Add favorite"}">
+          <i data-lucide="heart"></i>
+        </button>
+      </div>
+    </article>
+  `;
+}
 
-    genreList.querySelectorAll('.genre-item').forEach(el => {
-      el.addEventListener('click', () => {
-        const g = el.dataset.genre;
-        State.genre = g || null;
-        State.view = 'discover';
-        State.query = '';
-        searchInput.value = '';
-        $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === 'discover'));
-        renderGenres();
-        renderGrid();
-        if (window.innerWidth < 900) sidebar.classList.remove('open');
+function setCurrentStation(stationId, autoplay) {
+  const station = state.stations.find((item) => item.id === stationId);
+  if (!station) return;
+
+  state.currentStationId = station.id;
+  if (elements.audio.src !== station.streamUrl) {
+    elements.audio.src = station.streamUrl;
+    elements.audio.load();
+  }
+
+  elements.playerTitle.textContent = station.name;
+  elements.playerMeta.textContent = [station.genre, station.country, formatCodec(station)]
+    .filter(Boolean)
+    .join(" - ");
+  elements.heroNowPlaying.textContent = `${autoplay ? "Connecting to" : "Ready to play"} ${station.name}`;
+  elements.playerFallback.textContent = initials(station.name);
+
+  if (station.artwork) {
+    elements.playerArtwork.src = station.artwork;
+  } else {
+    elements.playerArtwork.removeAttribute("src");
+  }
+
+  elements.playerArtwork.onerror = () => {
+    elements.playerArtwork.removeAttribute("src");
+  };
+
+  renderPlayerControls();
+  renderStations();
+
+  if (autoplay) {
+    playCurrentStation();
+  } else {
+    setPlayerStatus("Ready");
+  }
+}
+
+async function playCurrentStation() {
+  const station = state.stations.find((item) => item.id === state.currentStationId) || state.filteredStations[0] || state.stations[0];
+  if (!station) return;
+
+  if (state.currentStationId !== station.id) {
+    setCurrentStation(station.id, false);
+  }
+
+  try {
+    setPlayerStatus("Connecting");
+    await elements.audio.play();
+  } catch (error) {
+    state.isPlaying = false;
+    setPlayerStatus("Tap play again");
+    showNotice("The browser blocked autoplay. Press play on the selected station.", true);
+    renderPlayerControls();
+  }
+}
+
+function pauseCurrentStation() {
+  elements.audio.pause();
+}
+
+function jumpStation(direction) {
+  const list = state.filteredStations.length ? state.filteredStations : state.stations;
+  const currentIndex = Math.max(0, list.findIndex((station) => station.id === state.currentStationId));
+  const nextIndex = (currentIndex + direction + list.length) % list.length;
+  setCurrentStation(list[nextIndex].id, true);
+}
+
+function toggleFavorite(stationId) {
+  if (state.favorites.has(stationId)) {
+    state.favorites.delete(stationId);
+  } else {
+    state.favorites.add(stationId);
+  }
+
+  localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify([...state.favorites]));
+  renderStations();
+}
+
+async function discoverStations() {
+  if (state.isDiscovering) return;
+
+  const query = elements.stationSearch.value.trim();
+  const genre = elements.genreFilter.value !== "all" ? elements.genreFilter.value : "";
+  const country = elements.countryFilter.value !== "all" ? elements.countryFilter.value : "";
+  const params = new URLSearchParams({
+    hidebroken: "true",
+    order: "clickcount",
+    reverse: "true",
+    limit: "24",
+  });
+
+  if (query) params.set("name", query);
+  if (!query && genre) params.set("tag", genre);
+  if (country) params.set("country", country);
+
+  state.isDiscovering = true;
+  elements.discoverButton.disabled = true;
+  showNotice("Searching live directory...");
+
+  try {
+    const response = await fetch(`${RADIO_BROWSER_SEARCH}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Directory returned ${response.status}`);
+    }
+
+    const stations = await response.json();
+    const discovered = normalizeStations(
+      stations
+        .filter((station) => String(station.url_resolved || station.url || "").startsWith("https://"))
+        .slice(0, 12)
+        .map((station) => ({
+          ...station,
+          id: station.stationuuid,
+          genre: firstTag(station.tags),
+          source: "directory",
+        }))
+    );
+
+    const existingUrls = new Set(state.stations.map((station) => station.streamUrl));
+    const fresh = discovered.filter((station) => !existingUrls.has(station.streamUrl));
+    state.stations = [...state.stations, ...fresh];
+    renderFilters();
+    renderStations();
+
+    showNotice(fresh.length ? `Added ${fresh.length} discovered stations.` : "No new secure streams found.");
+  } catch (error) {
+    showNotice("The live directory is unavailable right now.", true);
+  } finally {
+    state.isDiscovering = false;
+    elements.discoverButton.disabled = false;
+    refreshIcons();
+  }
+}
+
+function handleCustomStationSubmit(event) {
+  event.preventDefault();
+
+  const name = elements.customName.value.trim();
+  const streamUrl = safeUrl(elements.customUrl.value.trim());
+  const genre = cleanText(elements.customGenre.value, "Custom");
+  const country = cleanText(elements.customCountry.value, "Global");
+
+  if (!name || !streamUrl) {
+    setFormMessage("Add a valid station name and stream URL.", true);
+    return;
+  }
+
+  const station = {
+    id: `custom-${Date.now()}`,
+    name,
+    streamUrl,
+    genre,
+    country,
+    city: "",
+    tags: ["custom"],
+    artwork: "",
+    codec: "Custom",
+    bitrate: "",
+    source: "custom",
+  };
+
+  state.customStations = [...state.customStations, station];
+  state.stations = normalizeStations([...curatedStations, ...state.customStations]);
+  localStorage.setItem(STORAGE_KEYS.customStations, JSON.stringify(state.customStations));
+  elements.customStationForm.reset();
+  renderFilters();
+  renderStations();
+  setCurrentStation(station.id, true);
+  setFormMessage("Station saved.");
+}
+
+function renderPlayerControls() {
+  const icon = state.isPlaying ? "pause" : "play";
+  elements.playToggleIcon.setAttribute("data-lucide", icon);
+  elements.playToggle.setAttribute("aria-label", state.isPlaying ? "Pause current station" : "Play current station");
+  elements.playToggle.setAttribute("title", state.isPlaying ? "Pause current station" : "Play current station");
+  elements.muteButton.classList.toggle("is-active", state.isMuted);
+  elements.muteButton.innerHTML = `<i data-lucide="${state.isMuted ? "volume-x" : "volume-2"}"></i>`;
+  refreshIcons();
+}
+
+function setPlayerStatus(status) {
+  elements.playerStatus.textContent = status;
+  const station = state.stations.find((item) => item.id === state.currentStationId);
+  if (station && status === "Playing live") {
+    elements.heroNowPlaying.textContent = `Playing ${station.name}`;
+  }
+}
+
+function restoreVolume() {
+  const savedVolume = Number(localStorage.getItem(STORAGE_KEYS.volume));
+  const volume = Number.isFinite(savedVolume) ? savedVolume : 0.72;
+  elements.audio.volume = Math.min(1, Math.max(0, volume));
+  elements.volumeSlider.value = String(Math.round(elements.audio.volume * 100));
+}
+
+function setupRevealObserver() {
+  const revealItems = document.querySelectorAll("[data-reveal]");
+  if (!("IntersectionObserver" in window)) {
+    revealItems.forEach((item) => item.classList.add("is-visible"));
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
       });
-    });
+    },
+    { threshold: 0.12 }
+  );
+
+  revealItems.forEach((item) => observer.observe(item));
+}
+
+function showNotice(message, isError = false) {
+  elements.libraryNotice.textContent = message;
+  elements.libraryNotice.classList.toggle("is-error", isError);
+}
+
+function setFormMessage(message, isError = false) {
+  elements.customFormMessage.textContent = message;
+  elements.customFormMessage.classList.toggle("is-error", isError);
+}
+
+function refreshIcons() {
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeTags(tags) {
+  if (Array.isArray(tags)) {
+    return tags.map((tag) => cleanText(tag, "")).filter(Boolean);
   }
 
-  // ============================================================
-  // Hero/header copy per view
-  // ============================================================
-  function updateHero() {
-    if (State.view === 'podcasts') {
-      heroEyebrow.textContent = 'Podcasts · Live feeds';
-      heroTitle.textContent = 'Your favorite shows, always fresh.';
-      heroLead.textContent = 'Tap any podcast to browse its latest episodes — streamed live from the source, no account required.';
-      searchInput.placeholder = 'Search podcasts, publishers, topics…';
-    } else if (State.view === 'favorites') {
-      heroEyebrow.textContent = 'Saved';
-      heroTitle.textContent = 'Your favorites.';
-      heroLead.textContent = 'Everything you\'ve starred, in one place.';
-      searchInput.placeholder = 'Search favorites…';
-    } else if (State.view === 'recent') {
-      heroEyebrow.textContent = 'History';
-      heroTitle.textContent = 'Recently played.';
-      heroLead.textContent = 'Your last 24 listens across radio and podcasts.';
-      searchInput.placeholder = 'Search recent…';
-    } else {
-      heroEyebrow.textContent = 'Live · Worldwide';
-      heroTitle.textContent = 'Tune in to the world.';
-      heroLead.textContent = 'Thousands of streams. Zero buffering. Find your wave — from lo-fi beats in Tokyo to jazz in New Orleans.';
-      searchInput.placeholder = 'Search stations, genres, countries…';
-    }
-  }
+  return String(tags || "")
+    .split(",")
+    .map((tag) => cleanText(tag, ""))
+    .filter(Boolean)
+    .slice(0, 6);
+}
 
-  // ============================================================
-  // Grid rendering
-  // ============================================================
-  function getVisibleStations() {
-    let list;
-    if (State.view === 'favorites') {
-      list = State.favorites.map(findStation).filter(Boolean);
-    } else if (State.view === 'recent') {
-      list = State.recent.map(findStation).filter(Boolean);
-    } else {
-      list = STATIONS.slice();
-      if (State.genre) list = list.filter(s => s.genre === State.genre);
-    }
-    if (State.query) {
-      const q = State.query.toLowerCase();
-      list = list.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        s.genre.toLowerCase().includes(q) ||
-        s.country.toLowerCase().includes(q) ||
-        (s.description || '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }
+function firstTag(tags) {
+  return normalizeTags(tags)[0] || "Variety";
+}
 
-  function getVisiblePodcasts() {
-    let list = PODCASTS.slice();
-    if (State.view === 'favorites') {
-      list = State.podFavorites.map(findPodcast).filter(Boolean);
-    } else if (State.category) {
-      list = list.filter(p => p.category === State.category);
-    }
-    if (State.query) {
-      const q = State.query.toLowerCase();
-      list = list.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.publisher.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        (p.description || '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }
+function sanitizeId(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 80);
+}
 
-  function renderGrid() {
-    updateHero();
+function safeUrl(value) {
+  const url = String(value || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+}
 
-    if (State.view === 'podcasts') {
-      renderPodcastGrid();
-      return;
-    }
-    if (State.view === 'favorites') {
-      renderMixedFavorites();
-      return;
-    }
-    if (State.view === 'recent') {
-      renderMixedRecent();
-      return;
-    }
-    renderStationGrid();
-  }
+function cleanText(value, fallback) {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  return text || fallback;
+}
 
-  function renderStationGrid() {
-    const list = getVisibleStations();
+function formatCodec(station) {
+  return [station.codec, station.bitrate].filter(Boolean).join(" ");
+}
 
-    if (State.genre) sectionTitle.textContent = State.genre;
-    else sectionTitle.textContent = 'Discover Stations';
+function initials(value) {
+  return String(value || "MR")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
 
-    resultCount.textContent = list.length
-      ? `${list.length} station${list.length === 1 ? '' : 's'}`
-      : '';
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-    favCount.textContent = State.favorites.length + State.podFavorites.length;
-
-    if (!list.length) {
-      grid.innerHTML = '';
-      emptyState.hidden = false;
-      emptyMsg.textContent = 'Try a different search or browse another genre.';
-      return;
-    }
-    emptyState.hidden = true;
-
-    grid.innerHTML = list.map(s => stationCard(s)).join('');
-    bindStationCards();
-  }
-
-  function renderPodcastGrid() {
-    const list = getVisiblePodcasts();
-    sectionTitle.textContent = State.category ? State.category : 'Discover Podcasts';
-    resultCount.textContent = list.length
-      ? `${list.length} podcast${list.length === 1 ? '' : 's'}`
-      : '';
-
-    favCount.textContent = State.favorites.length + State.podFavorites.length;
-
-    if (!list.length) {
-      grid.innerHTML = '';
-      emptyState.hidden = false;
-      emptyMsg.textContent = 'Try a different search or category.';
-      return;
-    }
-    emptyState.hidden = true;
-
-    grid.innerHTML = list.map(p => podcastCard(p)).join('');
-    bindPodcastCards();
-  }
-
-  function renderMixedFavorites() {
-    sectionTitle.textContent = 'Your Favorites';
-    favCount.textContent = State.favorites.length + State.podFavorites.length;
-
-    const stations = State.favorites.map(findStation).filter(Boolean);
-    const podcasts = State.podFavorites.map(findPodcast).filter(Boolean);
-
-    const q = State.query.toLowerCase();
-    const filteredS = q
-      ? stations.filter(s => [s.name, s.genre, s.country, s.description].some(x => (x||'').toLowerCase().includes(q)))
-      : stations;
-    const filteredP = q
-      ? podcasts.filter(p => [p.name, p.publisher, p.category, p.description].some(x => (x||'').toLowerCase().includes(q)))
-      : podcasts;
-
-    const total = filteredS.length + filteredP.length;
-    resultCount.textContent = total ? `${total} saved` : '';
-
-    if (!total) {
-      grid.innerHTML = '';
-      emptyState.hidden = false;
-      emptyMsg.textContent = 'Tap the heart on any station or podcast to save it here.';
-      return;
-    }
-    emptyState.hidden = true;
-
-    grid.innerHTML = [
-      ...filteredS.map(s => stationCard(s)),
-      ...filteredP.map(p => podcastCard(p))
-    ].join('');
-    bindStationCards();
-    bindPodcastCards();
-  }
-
-  function renderMixedRecent() {
-    sectionTitle.textContent = 'Recently Played';
-    favCount.textContent = State.favorites.length + State.podFavorites.length;
-
-    const stations = State.recent.map(findStation).filter(Boolean);
-
-    // podRecent = [{ podcastId, episode }]
-    const epItems = State.podRecent
-      .map(r => ({ podcast: findPodcast(r.podcastId), episode: r.episode }))
-      .filter(x => x.podcast && x.episode);
-
-    const q = State.query.toLowerCase();
-    const filteredS = q
-      ? stations.filter(s => [s.name, s.genre, s.country, s.description].some(x => (x||'').toLowerCase().includes(q)))
-      : stations;
-    const filteredE = q
-      ? epItems.filter(x => [x.podcast.name, x.podcast.publisher, x.episode.title].some(v => (v||'').toLowerCase().includes(q)))
-      : epItems;
-
-    const total = filteredS.length + filteredE.length;
-    resultCount.textContent = total ? `${total} recent` : '';
-
-    if (!total) {
-      grid.innerHTML = '';
-      emptyState.hidden = false;
-      emptyMsg.textContent = 'Stations and episodes you play will show up here.';
-      return;
-    }
-    emptyState.hidden = true;
-
-    grid.innerHTML = [
-      ...filteredS.map(s => stationCard(s)),
-      ...filteredE.map(x => recentEpisodeCard(x.podcast, x.episode))
-    ].join('');
-    bindStationCards();
-    bindPodcastCards();
-    bindRecentEpisodeCards();
-  }
-
-  // ----- Card templates -----
-  function stationCard(s) {
-    const isPlaying = State.mode === 'radio' && s.id === State.currentId && State.isPlaying;
-    const isFav = State.favorites.includes(s.id);
-    const initial = s.name.charAt(0).toUpperCase();
-    return `
-      <div class="card ${isPlaying ? 'playing' : ''}" data-kind="station" data-id="${escapeHtml(s.id)}" style="--card-grad: ${s.grad}">
-        <button class="card-fav ${isFav ? 'active' : ''}" data-fav-
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}

@@ -1,143 +1,257 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Stream live radio stations and podcasts from around the world." />
-  <title>Wavelength · Live Radio & Podcasts</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div class="app">
-    <!-- ============== SIDEBAR ============== -->
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-logo">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M3 12h2M7 8v8M11 5v14M15 8v8M19 12h2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <h1>Wavelength</h1>
-          <p>Radio · Podcasts</p>
-        </div>
-      </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Mahmoud Radio streams curated live stations with search, favorites, custom stations, and a polished web player."
+    />
+    <title>Mahmoud Radio | Live Internet Radio</title>
+    <link rel="preconnect" href="https://de1.api.radio-browser.info" />
+    <link rel="preconnect" href="https://ice5.somafm.com" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <audio id="radioAudio" preload="none"></audio>
 
-      <nav class="nav">
-        <button class="nav-item active" data-view="discover">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="m15 9-2 4-4 2 2-4 4-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          <span>Radio</span>
-        </button>
-        <button class="nav-item" data-view="podcasts">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M8 21h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <span>Podcasts</span>
-        </button>
-        <button class="nav-item" data-view="favorites">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 5.5 5.5 5.5 0 0 1 21.5 12C19 16.5 12 21 12 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          <span>Favorites</span>
-          <span class="badge" id="favCount">0</span>
-        </button>
-        <button class="nav-item" data-view="recent">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <span>Recently Played</span>
-        </button>
+    <header class="site-header" data-reveal>
+      <a class="brand" href="#home" aria-label="Mahmoud Radio home">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span>Mahmoud Radio</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#stations">Stations</a>
+        <a href="#schedule">Schedule</a>
+        <a href="#custom">Add stream</a>
       </nav>
+      <button class="button button-small" type="button" data-action="hero-play">
+        <i data-lucide="radio"></i>
+        <span>Listen live</span>
+      </button>
+    </header>
 
-      <div class="genres" id="genresPanel">
-        <h3 id="genresHeading">Genres</h3>
-        <div class="genre-list" id="genreList"></div>
-      </div>
-
-      <div class="sidebar-footer">
-        <p>Built with <span class="heart">♥</span> for music lovers</p>
-      </div>
-    </aside>
-
-    <!-- ============== MAIN ============== -->
-    <main class="main">
-      <header class="topbar">
-        <button class="menu-btn" id="menuBtn" aria-label="Menu">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-        <div class="search">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <input type="search" id="searchInput" placeholder="Search stations, genres, countries…" />
+    <main id="home">
+      <section class="hero" aria-labelledby="heroTitle">
+        <div class="hero-media" aria-hidden="true">
+          <div class="frequency-grid"></div>
+          <div class="broadcast-rings">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <img
+            class="hero-art hero-art-large"
+            src="https://somafm.com/img3/groovesalad-400.jpg"
+            alt=""
+          />
+          <img
+            class="hero-art hero-art-small hero-art-one"
+            src="https://dancewave.online/dw_logo.png"
+            alt=""
+          />
+          <img
+            class="hero-art hero-art-small hero-art-two"
+            src="https://www.oldie-antenne.de/logos/oldie-antenne/apple-touch-icon.png"
+            alt=""
+          />
+          <div class="signal-stack">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
-        <div class="topbar-actions">
-          <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
-      </header>
 
-      <section class="hero" id="hero">
-        <div class="hero-text">
-          <span class="eyebrow" id="heroEyebrow">Live • Worldwide</span>
-          <h2 id="heroTitle">Tune in to the world.</h2>
-          <p id="heroLead">Thousands of streams. Zero buffering. Find your wave — from lo-fi beats in Tokyo to jazz in New Orleans.</p>
-        </div>
-        <div class="hero-visual">
-          <div class="orb orb-1"></div>
-          <div class="orb orb-2"></div>
-          <div class="orb orb-3"></div>
+        <div class="hero-inner" data-reveal>
+          <p class="eyebrow">Live global internet radio</p>
+          <h1 id="heroTitle">Mahmoud Radio</h1>
+          <p class="hero-copy">
+            Stream music, news, jazz, dance, chillout, and world stations from a fast browser player.
+          </p>
+          <div class="hero-actions">
+            <button class="button" type="button" data-action="hero-play">
+              <i data-lucide="play"></i>
+              <span>Start listening</span>
+            </button>
+            <a class="text-link" href="#stations">Browse stations</a>
+          </div>
+          <div class="live-strip" aria-live="polite">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span id="heroNowPlaying">Ready to play SomaFM Groove Salad</span>
+          </div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-head">
-          <h3 id="sectionTitle">Discover Stations</h3>
-          <span class="muted" id="resultCount"></span>
+      <section class="station-section" id="stations" aria-labelledby="stationsTitle">
+        <div class="section-heading" data-reveal>
+          <p class="eyebrow">Station library</p>
+          <h2 id="stationsTitle">Live streams</h2>
+          <p>
+            Search curated stations or discover new streams from the public Radio Browser directory.
+          </p>
         </div>
-        <div class="grid" id="stationGrid"></div>
-        <div class="empty" id="emptyState" hidden>
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9 10h.01M15 10h.01M9 16c1-1 5-1 6 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <h4>Nothing here yet</h4>
-          <p id="emptyMsg">Try a different search or browse another genre.</p>
+
+        <div class="toolbar" data-reveal>
+          <label class="search-field" for="stationSearch">
+            <i data-lucide="search"></i>
+            <input
+              id="stationSearch"
+              type="search"
+              autocomplete="off"
+              placeholder="Search station, genre, or country"
+            />
+          </label>
+
+          <label class="select-field" for="genreFilter">
+            <span>Genre</span>
+            <select id="genreFilter"></select>
+          </label>
+
+          <label class="select-field" for="countryFilter">
+            <span>Country</span>
+            <select id="countryFilter"></select>
+          </label>
+
+          <button class="icon-text-button" type="button" id="favoritesToggle" aria-pressed="false">
+            <i data-lucide="heart"></i>
+            <span>Favorites</span>
+          </button>
+
+          <button class="icon-text-button" type="button" id="discoverButton">
+            <i data-lucide="globe-2"></i>
+            <span>Discover</span>
+          </button>
         </div>
+
+        <div class="notice" id="libraryNotice" role="status" aria-live="polite"></div>
+        <div class="station-grid" id="stationGrid" aria-live="polite"></div>
+      </section>
+
+      <section class="studio-section" id="schedule" aria-labelledby="scheduleTitle">
+        <div class="section-heading" data-reveal>
+          <p class="eyebrow">Programming</p>
+          <h2 id="scheduleTitle">Today on air</h2>
+          <p>Four simple blocks for a full-day listening flow.</p>
+        </div>
+
+        <div class="timeline" data-reveal>
+          <article>
+            <time datetime="06:00">06:00</time>
+            <div>
+              <h3>Morning Signal</h3>
+              <p>News, culture, and lighter music to start the day.</p>
+            </div>
+          </article>
+          <article>
+            <time datetime="11:00">11:00</time>
+            <div>
+              <h3>Global Desk</h3>
+              <p>International public radio, talk, and regional voices.</p>
+            </div>
+          </article>
+          <article>
+            <time datetime="17:00">17:00</time>
+            <div>
+              <h3>Drive Mix</h3>
+              <p>Pop, rock, dance, and high-energy stations.</p>
+            </div>
+          </article>
+          <article>
+            <time datetime="22:00">22:00</time>
+            <div>
+              <h3>After Hours</h3>
+              <p>Jazz, ambient, downtempo, and late-night electronic sets.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="custom-section" id="custom" aria-labelledby="customTitle">
+        <div class="custom-copy" data-reveal>
+          <p class="eyebrow">Your streams</p>
+          <h2 id="customTitle">Add a station</h2>
+          <p>
+            Save any public MP3, AAC, or HLS stream URL in this browser.
+          </p>
+        </div>
+
+        <form class="custom-form" id="customStationForm" data-reveal>
+          <label>
+            <span>Station name</span>
+            <input id="customName" name="name" type="text" required maxlength="80" />
+          </label>
+          <label>
+            <span>Stream URL</span>
+            <input
+              id="customUrl"
+              name="url"
+              type="url"
+              required
+              placeholder="https://example.com/live.mp3"
+            />
+          </label>
+          <div class="form-row">
+            <label>
+              <span>Genre</span>
+              <input id="customGenre" name="genre" type="text" maxlength="40" />
+            </label>
+            <label>
+              <span>Country</span>
+              <input id="customCountry" name="country" type="text" maxlength="40" />
+            </label>
+          </div>
+          <button class="button" type="submit">
+            <i data-lucide="plus"></i>
+            <span>Save station</span>
+          </button>
+          <p class="form-message" id="customFormMessage" role="status" aria-live="polite"></p>
+        </form>
       </section>
     </main>
 
-    <!-- ============== PLAYER ============== -->
-    <footer class="player" id="player">
-      <div class="player-info">
-        <div class="cover" id="playerCover">
-          <span id="coverInitial">W</span>
-          <div class="bars" aria-hidden="true">
-            <span></span><span></span><span></span><span></span>
-          </div>
+    <aside class="player" aria-label="Radio player">
+      <div class="player-station">
+        <div class="player-art">
+          <img id="playerArtwork" alt="" />
+          <span id="playerFallback">MR</span>
         </div>
-        <div class="meta">
-          <p class="station-name" id="playerName">Select a station</p>
-          <p class="station-sub" id="playerSub">Press play to start streaming</p>
+        <div>
+          <p id="playerStatus">Ready</p>
+          <h2 id="playerTitle">SomaFM Groove Salad</h2>
+          <span id="playerMeta">Chillout - United States - MP3 128</span>
         </div>
-        <button class="icon-btn fav-btn" id="favBtn" aria-label="Favorite">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 5.5 5.5 5.5 0 0 1 21.5 12C19 16.5 12 21 12 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        </button>
       </div>
 
       <div class="player-controls">
-        <div class="control-buttons">
-          <button class="icon-btn" id="prevBtn" aria-label="Previous">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6 9 12l11 6V6z"/></svg>
-          </button>
-          <button class="play-btn" id="playBtn" aria-label="Play">
-            <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <svg id="pauseIcon" viewBox="0 0 24 24" fill="currentColor" hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-            <svg id="loadIcon" viewBox="0 0 24 24" fill="none" hidden class="spin"><path d="M12 3a9 9 0 1 0 9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-          </button>
-          <button class="icon-btn" id="nextBtn" aria-label="Next">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 18l11-6L4 6z"/></svg>
-          </button>
-        </div>
-        <div class="visualizer" id="visualizer">
-          <canvas id="vizCanvas"></canvas>
-        </div>
+        <button class="icon-btn" type="button" id="previousButton" aria-label="Previous station" title="Previous station">
+          <i data-lucide="skip-back"></i>
+        </button>
+        <button class="play-button" type="button" id="playToggle" aria-label="Play current station" title="Play current station">
+          <i data-lucide="play" id="playToggleIcon"></i>
+        </button>
+        <button class="icon-btn" type="button" id="nextButton" aria-label="Next station" title="Next station">
+          <i data-lucide="skip-forward"></i>
+        </button>
       </div>
 
-      <div class="player-volume">
-        <button class="icon-btn" id="muteBtn" aria-label="Mute">
-          <svg id="volIcon" viewBox="0 0 24 24" fill="none"><path d="M5 9h3l5-4v14l-5-4H5V9Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <svg id="muteIcon" viewBox="0 0 24 24" fill="none" hidden><path d="M5 9h3l5-4v14l-5-4H5V9ZM17 9l4 6M2
+      <div class="player-tools">
+        <button class="icon-btn" type="button" id="muteButton" aria-label="Mute" title="Mute">
+          <i data-lucide="volume-2"></i>
+        </button>
+        <label class="volume-control" for="volumeSlider">
+          <span>Volume</span>
+          <input id="volumeSlider" type="range" min="0" max="100" value="72" />
+        </label>
+      </div>
+    </aside>
+  </body>
+</html>
