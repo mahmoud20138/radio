@@ -775,55 +775,59 @@ a { color: inherit; }
   transform: translateX(-50%) translateY(0);
 }
 
-/* ===================== Scrollbars ===================== */
+/* ===================== Card Kind Badge (Radio/Podcast/Episode) ===================== */
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 999px; border: 2px solid var(--bg-0); }
-::-webkit-scrollbar-thumb:hover { background: var(--text-mute); }
-
-/* ===================== Responsive ===================== */
-
-@media (max-width: 900px) {
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "main"
-      "player";
-  }
-
-  .sidebar {
-    position: fixed;
-    inset: 0 30% 0 0;
-    z-index: 100;
-    transform: translateX(-100%);
-    transition: transform .3s ease;
-  }
-
-  .sidebar.open { transform: translateX(0); }
-
-  .menu-btn { display: grid; }
-
-  .hero { padding: 24px; }
-  .hero h2 { font-size: 26px; }
-
-  .main { padding: 16px 20px 24px; }
-
-  .player {
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    padding: 10px 14px;
-  }
-
-  .player-volume { display: none; }
-
-  .visualizer { display: none; }
-  .player-controls { min-width: 0; }
+.card-kind {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.95);
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px);
+  padding: 4px 8px;
+  border-radius: 6px;
+  pointer-events: none;
 }
 
-@media (max-width: 500px) {
-  .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-  .card { padding: 14px; }
-  .hero h2 { font-size: 22px; }
-  .hero p { font-size: 13px; }
+.podcast-card .card-kind { background: rgba(124,92,255,0.85); }
+.episode-card .card-kind { background: rgba(247,37,133,0.85); }
+
+/* ===================== Podcast Episode Drawer ===================== */
+
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  pointer-events: none;
 }
+
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity .3s ease;
+  pointer-events: auto;
+}
+
+.drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 92vw);
+  background: var(--bg-1);
+  border-left: 1px solid var(--line);
+  box-shadow: -40px 0 80px -20px rgba(0,0,0,0.6);
+  transform: translateX(100%);
+  transition: transform .3s cubic-bezier(.2,.8,.2,1);
+  pointer-events: auto;
+  display: flex;
+  flex-di

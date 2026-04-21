@@ -1,6 +1,6 @@
-# Wavelength · Live Internet Radio
+# Wavelength · Live Radio & Podcasts
 
-A polished, fully-functional internet radio streaming website. Browse 30+ curated stations across genres — lo-fi, electronic, jazz, classical, indie, news, world music — all streaming live in your browser.
+A polished, fully-functional streaming website for live internet radio AND podcasts. Browse 30+ curated radio stations plus 20+ popular podcasts — all streaming live in your browser.
 
 **Live demo:** open `index.html` in any modern browser. No build step. No backend.
 
@@ -8,15 +8,18 @@ A polished, fully-functional internet radio streaming website. Browse 30+ curate
 
 ## Features
 
-- **30+ live streams** — SomaFM, Radio France (FIP), BBC, NPR, KEXP, Jazz24 and more
-- **Genre filtering** — sidebar lists every genre with station counts
-- **Search** — by station name, genre, country, or description
-- **Favorites** — heart any station; persisted to `localStorage`
-- **Recently played** — auto-tracks your last 24 stations
+- **30+ live radio streams** — SomaFM, Radio France (FIP), BBC, NPR, KEXP, Jazz24 and more
+- **20+ popular podcasts** — The Daily, Radiolab, Lex Fridman, Planet Money, Serial, Hardcore History, and more — episodes fetched live from each show's RSS feed
+- **Genre & category filtering** — sidebar organizes radio by genre and podcasts by category
+- **Episode browser** — click any podcast to see the 30 most recent episodes in a side drawer
+- **Unified player** — same controls for radio and podcasts; auto-advance to next episode
+- **Search** — by station, podcast, publisher, genre, country, or description
+- **Favorites** — heart any station or podcast; persisted to `localStorage`
+- **Recently played** — auto-tracks your last 24 listens (radio + episodes)
 - **Player controls** — play/pause, prev/next, volume, mute
-- **Animated visualizer** — bars dance while a stream is live
+- **Animated visualizer** — bars dance while audio is playing
 - **Light & dark themes** — toggle in the top-right
-- **Keyboard shortcuts** — `Space` play/pause, `←/→` prev/next, `/` focus search
+- **Keyboard shortcuts** — `Space` play/pause, `←/→` prev/next, `/` focus search, `Esc` close drawer
 - **Fully responsive** — works on phones, tablets, desktops
 - **No frameworks, no build** — vanilla HTML, CSS, and JavaScript
 
@@ -28,10 +31,13 @@ A polished, fully-functional internet radio streaming website. Browse 30+ curate
 .
 ├── index.html      # markup
 ├── styles.css      # all styles, themes, animations
-├── app.js          # player logic, state, rendering
-├── stations.js     # editable station catalog
+├── app.js          # player logic, RSS fetching, state, rendering
+├── stations.js     # editable radio station catalog
+├── podcasts.js     # editable podcast catalog
 └── README.md
 ```
+
+Podcast episodes are fetched client-side via a public CORS proxy (`api.allorigins.win`) with a fallback to `corsproxy.io`. No API key needed. The RSS XML is parsed in-browser with `DOMParser`.
 
 To add a station, edit `stations.js`:
 
@@ -71,26 +77,4 @@ Then visit http://localhost:8000.
 
 This is a static site. Drop the four files into:
 
-- **GitHub Pages** — push to `main`, enable Pages on the repo (root)
-- **Netlify** — drag the folder onto netlify.com
-- **Vercel** — `vercel deploy`
-- **Cloudflare Pages** — connect the repo
-
----
-
-## Stream credits
-
-All streams are from publicly accessible internet radio providers:
-
-- [SomaFM](https://somafm.com) — listener-supported, commercial-free
-- [Radio France (FIP)](https://www.radiofrance.fr/fip)
-- [BBC](https://www.bbc.co.uk/sounds), [NPR](https://www.npr.org), [KEXP](https://kexp.org)
-- [Jazz24](https://www.jazz24.org), Classical KING FM, Venice Classic Radio
-
-If you redistribute, please keep attribution and respect each station's terms.
-
----
-
-## License
-
-MIT. Do whatever you want — credit appreciated.
+- **GitHub Pages** — push to `main`, enab

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Stream live radio stations from around the world." />
-  <title>Wavelength · Live Radio</title>
+  <meta name="description" content="Stream live radio stations and podcasts from around the world." />
+  <title>Wavelength · Live Radio & Podcasts</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
@@ -22,14 +22,18 @@
         </div>
         <div class="brand-text">
           <h1>Wavelength</h1>
-          <p>Live Internet Radio</p>
+          <p>Radio · Podcasts</p>
         </div>
       </div>
 
       <nav class="nav">
         <button class="nav-item active" data-view="discover">
           <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="m15 9-2 4-4 2 2-4 4-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          <span>Discover</span>
+          <span>Radio</span>
+        </button>
+        <button class="nav-item" data-view="podcasts">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M8 21h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Podcasts</span>
         </button>
         <button class="nav-item" data-view="favorites">
           <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 5.5 5.5 5.5 0 0 1 21.5 12C19 16.5 12 21 12 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
@@ -42,8 +46,8 @@
         </button>
       </nav>
 
-      <div class="genres">
-        <h3>Genres</h3>
+      <div class="genres" id="genresPanel">
+        <h3 id="genresHeading">Genres</h3>
         <div class="genre-list" id="genreList"></div>
       </div>
 
@@ -71,9 +75,9 @@
 
       <section class="hero" id="hero">
         <div class="hero-text">
-          <span class="eyebrow">Live • Worldwide</span>
-          <h2>Tune in to the world.</h2>
-          <p>Thousands of streams. Zero buffering. Find your wave — from lo-fi beats in Tokyo to jazz in New Orleans.</p>
+          <span class="eyebrow" id="heroEyebrow">Live • Worldwide</span>
+          <h2 id="heroTitle">Tune in to the world.</h2>
+          <p id="heroLead">Thousands of streams. Zero buffering. Find your wave — from lo-fi beats in Tokyo to jazz in New Orleans.</p>
         </div>
         <div class="hero-visual">
           <div class="orb orb-1"></div>
@@ -136,19 +140,4 @@
       <div class="player-volume">
         <button class="icon-btn" id="muteBtn" aria-label="Mute">
           <svg id="volIcon" viewBox="0 0 24 24" fill="none"><path d="M5 9h3l5-4v14l-5-4H5V9Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <svg id="muteIcon" viewBox="0 0 24 24" fill="none" hidden><path d="M5 9h3l5-4v14l-5-4H5V9ZM17 9l4 6M21 9l-4 6" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        </button>
-        <input type="range" id="volume" min="0" max="100" value="70" aria-label="Volume" />
-        <span class="vol-value" id="volValue">70</span>
-      </div>
-    </footer>
-
-    <audio id="audio" crossorigin="anonymous"></audio>
-  </div>
-
-  <div class="toast" id="toast" hidden></div>
-
-  <script src="stations.js"></script>
-  <script src="app.js"></script>
-</body>
-</html>
+          <svg id="muteIcon" viewBox="0 0 24 24" fill="none" hidden><path d="M5 9h3l5-4v14l-5-4H5V9ZM17 9l4 6M2
